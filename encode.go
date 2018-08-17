@@ -112,7 +112,7 @@ func (e *Encoder) writeLines(v reflect.Value) error {
 }
 
 func (e *Encoder) writeLine(v reflect.Value) (err error) {
-	b, err := newValueEncoder(v.Type())(v)
+	b, err := newValueEncoder(v.Type(), nil)(v)
 	if err != nil {
 		return err
 	}
@@ -122,10 +122,15 @@ func (e *Encoder) writeLine(v reflect.Value) (err error) {
 
 type valueEncoder func(v reflect.Value) ([]byte, error)
 
-func newValueEncoder(t reflect.Type) valueEncoder {
+func newValueEncoder(t reflect.Type, spec *fieldSpec) valueEncoder {
 	if t == nil {
 		return nilEncoder
 	}
+
+	if t.Implements(reflect.TypeOf(new(Marshaler)).Elem()) {
+		return fixedwidthMarshalerEncoder(spec)
+	}
+
 	if t.Implements(reflect.TypeOf(new(encoding.TextMarshaler)).Elem()) {
 		return textMarshalerEncoder
 	}
@@ -160,7 +165,7 @@ func structEncoder(v reflect.Value) ([]byte, error) {
 		if !ok {
 			continue
 		}
-		spec.value, err = newValueEncoder(f.Type)(v.Field(i))
+		spec.value, err = newValueEncoder(f.Type, &spec)(v.Field(i))
 		if err != nil {
 			return nil, err
 		}
@@ -196,11 +201,22 @@ func textMarshalerEncoder(v reflect.Value) ([]byte, error) {
 	return v.Interface().(encoding.TextMarshaler).MarshalText()
 }
 
+func fixedwidthMarshalerEncoder(spec *fieldSpec) valueEncoder {
+	return func(v reflect.Value) ([]byte, error) {
+		Spec := FieldSpec{}
+		if spec != nil {
+			Spec.StartPos = spec.startPos
+			Spec.EndPos = spec.endPos
+		}
+		return v.Interface().(Marshaler).MarshalFixedWidth(Spec)
+	}
+}
+
 func ptrInterfaceEncoder(v reflect.Value) ([]byte, error) {
 	if v.IsNil() {
 		return nilEncoder(v)
 	}
-	return newValueEncoder(v.Elem().Type())(v.Elem())
+	return newValueEncoder(v.Elem().Type(), nil)(v.Elem())
 }
 
 func stringEncoder(v reflect.Value) ([]byte, error) {
