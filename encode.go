@@ -85,7 +85,7 @@ func (e *Encoder) Encode(i interface{}) (err error) {
 		// encode each slice element to a line
 		err = e.writeLines(v)
 	} else {
-		// this is a single object so encode the original vale to a line
+		// this is a single object so encode the original value to a line
 		err = e.writeLine(reflect.ValueOf(i))
 	}
 	if err != nil {
