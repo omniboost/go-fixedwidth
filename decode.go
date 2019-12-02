@@ -238,9 +238,19 @@ func rawValueFromLine(value rawValue, startPos, endPos int) rawValue {
 
 type valueSetter func(v reflect.Value, raw rawValue) error
 
-var textUnmarshalerType = reflect.TypeOf(new(encoding.TextUnmarshaler)).Elem()
+var (
+	unmarshalerType     = reflect.TypeOf(new(Unmarshaler)).Elem()
+	textUnmarshalerType = reflect.TypeOf(new(encoding.TextUnmarshaler)).Elem()
+)
 
 func newValueSetter(t reflect.Type) valueSetter {
+	if t.Implements(unmarshalerType) {
+		return unmarshalerSetter(t, false)
+	}
+	if reflect.PtrTo(t).Implements(unmarshalerType) {
+		return unmarshalerSetter(t, true)
+	}
+
 	if t.Implements(textUnmarshalerType) {
 		return textUnmarshalerSetter(t, false)
 	}
@@ -292,6 +302,19 @@ func unknownSetter(v reflect.Value, raw rawValue) error {
 func nilSetter(v reflect.Value, _ rawValue) error {
 	v.Set(reflect.Zero(v.Type()))
 	return nil
+}
+
+func unmarshalerSetter(t reflect.Type, shouldAddr bool) valueSetter {
+	return func(v reflect.Value, raw rawValue) error {
+		if shouldAddr {
+			v = v.Addr()
+		}
+		// set to zero value if this is nil
+		if t.Kind() == reflect.Ptr && v.IsNil() {
+			v.Set(reflect.New(t.Elem()))
+		}
+		return v.Interface().(Unmarshaler).UnmarshalFixedWidth([]byte(raw.data))
+	}
 }
 
 func textUnmarshalerSetter(t reflect.Type, shouldAddr bool) valueSetter {

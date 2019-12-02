@@ -5,6 +5,10 @@ type Marshaler interface {
 	MarshalFixedWidth(FieldSpec) ([]byte, error)
 }
 
+type Unmarshaler interface {
+	UnmarshalFixedWidth([]byte) error
+}
+
 type FieldSpec struct {
 	StartPos, EndPos int
 }
