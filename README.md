@@ -63,5 +63,31 @@ fmt.Printf("%+v\n", people[2])
 //{ID:3 FirstName:Jane LastName:Doe Grade:79.5}
 ```
 
+It is also possible to read data incrementally
+
+```go
+decoder := fixedwidth.NewDecoder(bytes.NewReader(data))
+for {
+    var element myStruct
+    err := decoder.Decode(&element)
+    if err == io.EOF {
+        break
+    }
+    if err != nil {
+        log.Fatal(err)
+    }
+    handle(element)
+}
+```
+
+If you have an input where the indices are expressed in unicode codepoints, and
+not raw bytes fixedwidth supports this. Your data must be UTF-8 encoded:
+
+```go
+decoder := fixedwidth.NewDecoder(strings.NewReader(data))
+decoder.SetUseCodepointIndices(true)
+// Decode as usual now
+```
+
 ## Licence
 MIT

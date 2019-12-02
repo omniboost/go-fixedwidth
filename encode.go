@@ -57,14 +57,23 @@ func (e *MarshalInvalidTypeError) Error() string {
 // An Encoder writes fixed-width formatted data to an output
 // stream.
 type Encoder struct {
-	w *bufio.Writer
+	w              *bufio.Writer
+	lineTerminator []byte
 }
 
 // NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{
-		bufio.NewWriter(w),
+		w:              bufio.NewWriter(w),
+		lineTerminator: []byte("\n"),
 	}
+}
+
+// SetLineTerminator sets the character(s) that will be used to terminate lines.
+//
+// The default value is "\n".
+func (e *Encoder) SetLineTerminator(lineTerminator []byte) {
+	e.lineTerminator = lineTerminator
 }
 
 // Encode writes the fixed-width encoding of v to the
@@ -102,7 +111,7 @@ func (e *Encoder) writeLines(v reflect.Value) error {
 		}
 
 		if i != v.Len()-1 {
-			_, err := e.w.Write([]byte("\n"))
+			_, err := e.w.Write(e.lineTerminator)
 			if err != nil {
 				return err
 			}
@@ -153,48 +162,21 @@ func newValueEncoder(t reflect.Type, spec *fieldSpec) valueEncoder {
 }
 
 func structEncoder(v reflect.Value) ([]byte, error) {
-	var specs []fieldSpec
-	for i := 0; i < v.Type().NumField(); i++ {
-		f := v.Type().Field(i)
-		var (
-			err  error
-			spec fieldSpec
-			ok   bool
-		)
-		spec.startPos, spec.endPos, ok = parseTag(f.Tag.Get("fixed"))
-		if !ok {
+	ss := cachedStructSpec(v.Type())
+	dst := bytes.Repeat([]byte(" "), ss.ll)
+
+	for i, spec := range ss.fieldSpecs {
+		if !spec.ok {
 			continue
 		}
-		spec.value, err = newValueEncoder(f.Type, &spec)(v.Field(i))
+
+		val, err := spec.encoder(v.Field(i))
 		if err != nil {
 			return nil, err
 		}
-		specs = append(specs, spec)
+		copy(dst[spec.startPos-1:spec.endPos:spec.endPos], val)
 	}
-	return encodeSpecs(specs), nil
-}
-
-type fieldSpec struct {
-	startPos, endPos int
-	value            []byte
-}
-
-func encodeSpecs(specs []fieldSpec) []byte {
-	var ll int
-	for _, spec := range specs {
-		if spec.endPos > ll {
-			ll = spec.endPos
-		}
-	}
-	data := bytes.Repeat([]byte(" "), ll)
-	for _, spec := range specs {
-		for i, b := range spec.value {
-			if spec.startPos+i <= spec.endPos {
-				data[spec.startPos+i-1] = b
-			}
-		}
-	}
-	return data
+	return dst, nil
 }
 
 func textMarshalerEncoder(v reflect.Value) ([]byte, error) {
