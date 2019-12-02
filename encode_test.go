@@ -117,7 +117,7 @@ func TestNewValueEncoder(t *testing.T) {
 		{"TextUnmarshaler error", EncodableString{"foo", errors.New("TextUnmarshaler error")}, []byte("foo"), true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			o, err := newValueEncoder(reflect.TypeOf(tt.i))(reflect.ValueOf(tt.i))
+			o, err := newValueEncoder(reflect.TypeOf(tt.i), nil)(reflect.ValueOf(tt.i))
 			if tt.shouldErr != (err != nil) {
 				t.Errorf("newValueEncoder(%s)() shouldErr expected %v, have %v (%v)", reflect.TypeOf(tt.i).Name(), tt.shouldErr, err != nil, err)
 			}

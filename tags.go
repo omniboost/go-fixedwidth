@@ -52,7 +52,7 @@ func buildStructSpec(t reflect.Type) structSpec {
 		if ss.fieldSpecs[i].endPos > ss.ll {
 			ss.ll = ss.fieldSpecs[i].endPos
 		}
-		ss.fieldSpecs[i].encoder = newValueEncoder(f.Type)
+		ss.fieldSpecs[i].encoder = newValueEncoder(f.Type, nil)
 		ss.fieldSpecs[i].setter = newValueSetter(f.Type)
 	}
 	return ss
